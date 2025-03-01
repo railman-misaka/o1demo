@@ -39,10 +39,25 @@ export async function POST(req: Request) {
     }
 
     // ユーザーメッセージの前にシステムメッセージを追加
-    const allMessages = [systemMessage, ...messages.map((msg: any) => ({
-      role: msg.role,
-      content: msg.content,
-    }))]
+    const allMessages = [systemMessage, ...messages.map((msg: any) => {
+      // ファイルURLがある場合は、メッセージ内容にファイル情報を追加
+      let content = msg.content
+      
+      if (msg.fileUrl) {
+        if (msg.fileUrl.startsWith('data:image/')) {
+          // 画像ファイルの場合
+          content = `${content ? content + "\n\n" : ""}[画像ファイルが添付されています: ${msg.fileName || "画像"}]`
+        } else {
+          // その他のファイルの場合
+          content = `${content ? content + "\n\n" : ""}[ファイルが添付されています: ${msg.fileName || "ファイル"}]`
+        }
+      }
+      
+      return {
+        role: msg.role,
+        content: content,
+      }
+    })]
 
     // モデルに基づいてデプロイメント名を決定
     let deploymentName = process.env.AZURE_OPENAI_DEFAULT_DEPLOYMENT || "gpt-4o"

@@ -9,6 +9,8 @@ type Message = {
   id: string
   role: "user" | "assistant"
   content: string
+  fileUrl?: string
+  fileName?: string
 }
 
 interface UseChatProps {
@@ -61,15 +63,39 @@ export function useChat({ chatId, model = "gpt-35-turbo" }: UseChatProps = {}) {
   }, [])
 
   const handleSubmit = useCallback(
-    async (e: FormEvent) => {
+    async (e: FormEvent, file?: File | null) => {
       e.preventDefault()
 
-      if (!input.trim() || isLoading) return
+      if ((!input.trim() && !file) || isLoading) return
+
+      let fileUrl = ""
+      let fileName = ""
+
+      // ファイルがある場合は処理
+      if (file) {
+        fileName = file.name
+        
+        // 画像ファイルの場合はデータURLに変換
+        if (file.type.startsWith('image/')) {
+          fileUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onload = (e) => {
+              resolve(e.target?.result as string)
+            }
+            reader.readAsDataURL(file)
+          })
+        } else {
+          // 画像以外のファイルの場合はファイル名のみ保存
+          fileUrl = "file://" + file.name
+        }
+      }
 
       const userMessage: Message = {
         id: uuidv4(),
         role: "user",
         content: input,
+        fileUrl: fileUrl || undefined,
+        fileName: fileName || undefined
       }
 
       setMessages((prev) => [...prev, userMessage])
@@ -84,7 +110,12 @@ export function useChat({ chatId, model = "gpt-35-turbo" }: UseChatProps = {}) {
         // APIリクエスト用のメッセージ配列を作成
         const apiMessages = messages
           .concat(userMessage)
-          .map(({ role, content }) => ({ role, content }))
+          .map(({ role, content, fileUrl, fileName }) => ({ 
+            role, 
+            content,
+            fileUrl,
+            fileName
+          }))
 
         // APIエンドポイントにリクエストを送信
         const response = await fetch("/api/chat", {

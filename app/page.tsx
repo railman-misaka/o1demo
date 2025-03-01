@@ -2,7 +2,7 @@
 
 import { ChatInterface } from "@/components/chat-interface"
 import { useState, useEffect, useRef } from "react"
-import { Trash2, Search, X } from "lucide-react"
+import { Trash2, Search, X, Settings, Edit } from "lucide-react"
 
 // チャット履歴の型定義
 interface ChatHistory {
@@ -381,6 +381,10 @@ export default function Home() {
       (!chat.workspaceId && selectedWorkspace === DEFAULT_WORKSPACE.id)
     )
     
+    // 確認ダイアログを表示
+    const confirmed = confirm(`このワークスペース内のすべてのチャット履歴を削除しますか？`)
+    if (!confirmed) return
+    
     // 現在選択されているチャットが削除対象の場合、選択を解除
     if (chatId && chatsToDelete.some(chat => chat.id === chatId)) {
       setChatId(null)
@@ -409,6 +413,92 @@ export default function Home() {
         localStorage.removeItem(`chat_${chat.id}`)
         localStorage.removeItem(`chat_title_${chat.id}`)
       })
+    }
+  }
+
+  // ワークスペースを削除する関数
+  const deleteWorkspace = () => {
+    // デフォルトワークスペースは削除できない
+    if (selectedWorkspace === DEFAULT_WORKSPACE.id) {
+      alert('デフォルトのワークスペースは削除できません。')
+      return
+    }
+    
+    // 確認ダイアログを表示
+    const confirmed = confirm(`ワークスペース「${workspaces.find(w => w.id === selectedWorkspace)?.name}」を削除しますか？\n\nこのワークスペース内のすべてのチャット履歴も削除されます。`)
+    if (!confirmed) return
+    
+    // 削除するワークスペースに関連するチャットを特定
+    const chatsToDelete = chatHistory.filter(chat => 
+      chat.workspaceId === selectedWorkspace
+    )
+    
+    // 現在選択されているチャットが削除対象の場合、選択を解除
+    if (chatId && chatsToDelete.some(chat => chat.id === chatId)) {
+      setChatId(null)
+      setCurrentChatTitle("新しい会話")
+      
+      // 最後に選択されていたチャットIDを削除
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('last_chat_id')
+      }
+    }
+    
+    // 削除するワークスペース以外のチャットを保持
+    const remainingChats = chatHistory.filter(chat => 
+      chat.workspaceId !== selectedWorkspace
+    )
+    
+    // 削除するワークスペース以外のワークスペースを保持
+    const remainingWorkspaces = workspaces.filter(workspace => 
+      workspace.id !== selectedWorkspace
+    )
+    
+    // デフォルトワークスペースを選択
+    setSelectedWorkspace(DEFAULT_WORKSPACE.id)
+    
+    // ステートを更新
+    setChatHistory(remainingChats)
+    setWorkspaces(remainingWorkspaces)
+    
+    // ローカルストレージを更新
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('chat_history', JSON.stringify(remainingChats))
+      localStorage.setItem('workspaces', JSON.stringify(remainingWorkspaces))
+      localStorage.setItem('selected_workspace', DEFAULT_WORKSPACE.id)
+      
+      // 削除対象のチャットメッセージも削除
+      chatsToDelete.forEach(chat => {
+        localStorage.removeItem(`chat_${chat.id}`)
+        localStorage.removeItem(`chat_title_${chat.id}`)
+      })
+    }
+  }
+
+  // ワークスペース名を編集する関数
+  const editWorkspace = () => {
+    // デフォルトワークスペースは編集できない
+    if (selectedWorkspace === DEFAULT_WORKSPACE.id) {
+      alert('デフォルトのワークスペースは編集できません。')
+      return
+    }
+    
+    const workspace = workspaces.find(w => w.id === selectedWorkspace)
+    if (!workspace) return
+    
+    const newName = prompt('ワークスペース名を入力してください', workspace.name)
+    if (!newName || newName === workspace.name) return
+    
+    // ワークスペース名を更新
+    const updatedWorkspaces = workspaces.map(w => 
+      w.id === selectedWorkspace ? { ...w, name: newName } : w
+    )
+    
+    setWorkspaces(updatedWorkspaces)
+    
+    // ローカルストレージに保存
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('workspaces', JSON.stringify(updatedWorkspaces))
     }
   }
 
@@ -458,12 +548,36 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <button 
-              onClick={createNewWorkspace}
-              className="mt-2 text-xs text-blue-400 hover:text-blue-300 transition-colors"
-            >
-              + 新しいワークスペースを作成
-            </button>
+            <div className="flex justify-between mt-2">
+              <button 
+                onClick={createNewWorkspace}
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                + 新しいワークスペースを作成
+              </button>
+              
+              <div className="flex flex-col space-y-1">
+                <button 
+                  onClick={editWorkspace}
+                  className="text-xs text-gray-400 hover:text-gray-300 transition-colors flex items-center justify-end"
+                  disabled={selectedWorkspace === DEFAULT_WORKSPACE.id}
+                  title={selectedWorkspace === DEFAULT_WORKSPACE.id ? 'デフォルトのワークスペースは編集できません' : 'ワークスペース名を編集'}
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  編集
+                </button>
+                
+                <button 
+                  onClick={deleteWorkspace}
+                  className="text-xs text-red-400 hover:text-red-300 transition-colors flex items-center justify-end"
+                  disabled={selectedWorkspace === DEFAULT_WORKSPACE.id}
+                  title={selectedWorkspace === DEFAULT_WORKSPACE.id ? 'デフォルトのワークスペースは削除できません' : 'ワークスペースを削除'}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  削除
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="p-4">

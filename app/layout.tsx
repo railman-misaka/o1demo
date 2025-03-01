@@ -6,7 +6,7 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Azure OpenAI o1 チャットボット",
+  title: "Azure OpenAI チャットデモ",
   description: "Azure OpenAI o1モデルを活用したチャットボットシステム",
     generator: 'v0.dev'
 }
